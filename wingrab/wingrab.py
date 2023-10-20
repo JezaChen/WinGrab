@@ -215,6 +215,16 @@ user32.CopyImage.argtypes = (
 )
 
 # ===================================
+#  GetCursorPos
+#  https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getcursorpos
+# ===================================
+user32.GetCursorPos.restype = BOOL
+user32.GetCursorPos.argtypes = (
+    # _Out_ lpPoint
+    POINTER(POINT),
+)
+
+# ===================================
 #  WindowFromPoint
 #  https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-windowfrompoint
 # ===================================
@@ -290,8 +300,8 @@ def _restore_system_cursors():
         user32.SetSystemCursor(_saved_system_cursors[cursorId], cursorId)
 
 
-def _get_pid_from_point(x, y):
-    win = user32.WindowFromPoint(_Point(x, y))
+def _get_pid_from_point(point):
+    win = user32.WindowFromPoint(point)
     pid = c_int()
     user32.GetWindowThreadProcessId(win, byref(pid))
     return pid.value
@@ -301,9 +311,9 @@ def _get_pid_from_point(x, y):
 def _LLMouseProc(nCode, wParam, lParam):
     global _result
 
-    msg = cast(lParam, LPMSLLHOOKSTRUCT)[0]
     if nCode == HC_ACTION:
         if _is_debug:
+            msg = cast(lParam, LPMSLLHOOKSTRUCT)[0]
             _print_mouse_msg(wParam, msg)
 
         if wParam == WM_LBUTTONDOWN:
@@ -312,8 +322,9 @@ def _LLMouseProc(nCode, wParam, lParam):
         elif wParam == WM_LBUTTONUP:
             _restore_system_cursors()
             user32.PostThreadMessageW(threading.current_thread().ident, WM_QUIT, 0, 0)
-
-            _result = _get_pid_from_point(msg.pt.x, msg.pt.y)
+            point = POINT()
+            user32.GetCursorPos(byref(point))
+            _result = _get_pid_from_point(point)
             return 1
     return user32.CallNextHookEx(None, nCode, wParam, lParam)
 
