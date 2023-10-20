@@ -8,7 +8,7 @@ def get_description():
 
 setup(
     name="WinGrab",
-    version="0.0.1a2",
+    version="0.0.1a3",
     url="https://github.com/JezaChen/WinGrab",
     author="Jianzhang Chen",
     author_email="jezachen@163.com",
