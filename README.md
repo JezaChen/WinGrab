@@ -17,6 +17,8 @@ You just need to download the `wingrab.py` file and put it in your project.
 ### In your code
 
 ```python
-import wingrab
+
+from wingrab import wingrab
+
 wingrab.grab()
 ```
