@@ -69,7 +69,7 @@ wingrab.cleanup()
 `examples` directory contains several examples which demonstrate usage and integration methods. 
 You can run them directly after installing the package:
 
-- `pyqt5_example.py`: An example of using `wingrab` in the main thread of a PyQt5 application.
-- `pyqt5_example_run_in_sub_thread.py`: An example of using `wingrab` in the sub thread of a PyQt5 application.
-- `tkinter_example.py`: An example of using `wingrab` in a Tkinter application.
-- `run_in_sub_thread.py`: An example of using `wingrab` in a sub thread of a console application.
+- [pyqt5_example.py](examples%2Fpyqt5_example.py): An example of using `wingrab` in the main thread of a PyQt5 application.
+- [pyqt5_example_run_in_sub_thread.py](examples%2Fpyqt5_example_run_in_sub_thread.py): An example of using `wingrab` in the sub thread of a PyQt5 application.
+- [tkinter_example.py](examples%2Ftkinter_example.py): An example of using `wingrab` in a Tkinter application.
+- [run_in_sub_thread.py](examples%2Frun_in_sub_thread.py): An example of using `wingrab` in a sub thread of a console application.
