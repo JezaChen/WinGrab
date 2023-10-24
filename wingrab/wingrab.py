@@ -432,6 +432,8 @@ def _cleanup_impl(*, _from_atexit=False):
         print("cleaning up......")
 
     if _from_atexit and _is_cursor_changed:
+        # We only need to restore the cursor when **the cursor is changed in this process**.
+        # If the cursor is changed in another process (This process will raise an error), we do not need to restore it.
         _restore_system_cursors()
 
     if os.path.exists(lock_file_path):
