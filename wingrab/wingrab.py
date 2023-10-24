@@ -443,13 +443,18 @@ def _cleanup_impl(*, _from_atexit=False):
 
 # Register cleanup function
 atexit.register(lambda: _cleanup_impl(_from_atexit=True))
-signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
-signal.signal(signal.SIGINT, lambda *_: sys.exit(0))
+try:
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+    signal.signal(signal.SIGINT, lambda *_: sys.exit(0))
+except ValueError:  # `signal` only works in the main thread.
+    raise ImportError(
+        'Please import wingrab in the main thread, even if you want to use it in another thread.'
+    ) from None
 # endregion
 
 
 # region The public API
-def grab(_debug=False):
+def grab(*, _debug=False):
     with _global_wingrab_process_lock():
         global _is_debug, _result
         _is_debug = _debug
@@ -461,7 +466,7 @@ def grab(_debug=False):
         return r
 
 
-def cleanup(_debug=False):
+def cleanup(*, _debug=False):
     global _is_debug
     _is_debug = _debug
 
@@ -470,4 +475,4 @@ def cleanup(_debug=False):
 
 
 if __name__ == '__main__':
-    print(grab(False))
+    print(grab(_debug=False))
