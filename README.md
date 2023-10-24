@@ -1,5 +1,5 @@
 # WinGrab
-<div align="center">A simple tool to get the PID of the window under the cursor.</div>
+A simple tool to get the PID of the window under the cursor.
 
 ## Installation
 ### From pip
