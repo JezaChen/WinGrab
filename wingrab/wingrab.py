@@ -357,11 +357,7 @@ def grab(_debug=False):
         global _is_debug, _result
         _is_debug = _debug
 
-        import threading
-
-        t = threading.Thread(target=_msg_loop)
-        t.start()
-        t.join()
+        _msg_loop()
 
         r = _result
         _result = 0
@@ -369,4 +365,4 @@ def grab(_debug=False):
 
 
 if __name__ == '__main__':
-    print(grab(True))
+    print(grab(False))
