@@ -13,6 +13,7 @@ if sys.platform != 'win32':
 
 import os
 import threading
+import contextlib
 
 from ctypes import POINTER, cast, byref, Structure, WinError, get_last_error, c_int, WinDLL, WINFUNCTYPE, c_long
 from ctypes.wintypes import (WPARAM, LPARAM, HANDLE, DWORD, BOOL, HINSTANCE, UINT, LPCWSTR, LPDWORD, MSG, HHOOK, HWND,
@@ -248,11 +249,43 @@ _standard_cursor_ids = [
 # Whether to print debug messages
 _is_debug = False
 
+# The absolute path of the module
+module_path = os.path.dirname(__file__)
+
 # We need to change all standard cursors to our custom cursor
 cursor_rel_path = 'cursor.cur'
-cursor_absolute_path = os.path.join(os.path.dirname(__file__), cursor_rel_path)
+cursor_absolute_path = os.path.join(module_path, cursor_rel_path)
+
+# The path of the lock file
+lock_file_path = os.path.join(module_path, 'WINGRAB.LOCKFILE')
 
 _result = 0
+
+
+@contextlib.contextmanager
+def _global_wingrab_process_lock():
+    """
+    Context manager for acquiring and releasing a process lock for WinGrab.
+
+    The process lock ensures that only one instance of WinGrab is running at a time.
+    If another instance is already running, a `RuntimeError` is raised.
+
+    Example:
+        with _global_wingrab_process_lock():
+            # Code executed while the lock is held
+
+    :return: None
+    """
+    try:
+        f = open(lock_file_path, 'x')
+    except FileExistsError:
+        raise RuntimeError('Another instance of WinGrab is running') from None
+
+    try:
+        yield
+    finally:
+        f.close()
+        os.remove(lock_file_path)
 
 
 def _print_mouse_msg(wParam, msg):
@@ -320,18 +353,19 @@ def _msg_loop():
 
 
 def grab(_debug=False):
-    global _is_debug, _result
-    _is_debug = _debug
+    with _global_wingrab_process_lock():
+        global _is_debug, _result
+        _is_debug = _debug
 
-    import threading
+        import threading
 
-    t = threading.Thread(target=_msg_loop)
-    t.start()
-    t.join()
+        t = threading.Thread(target=_msg_loop)
+        t.start()
+        t.join()
 
-    r = _result
-    _result = 0
-    return r
+        r = _result
+        _result = 0
+        return r
 
 
 if __name__ == '__main__':
