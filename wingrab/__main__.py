@@ -5,7 +5,7 @@ import wingrab
 def main():
     if len(sys.argv) < 2 or sys.argv[1] == 'grab':
         print(wingrab.grab())
-    elif sys.argv[1] == 'clean':
+    elif sys.argv[1] == 'cleanup':
         wingrab.cleanup()
         print('Cleaned up.')
     else:
