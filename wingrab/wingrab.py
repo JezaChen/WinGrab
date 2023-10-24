@@ -26,6 +26,7 @@ user32 = WinDLL('user32', use_last_error=True)
 HC_ACTION = 0
 WH_MOUSE_LL = 14
 
+WM_NULL = 0x0000
 WM_QUIT = 0x0012
 WM_MOUSEMOVE = 0x0200
 WM_LBUTTONDOWN = 0x0201
@@ -107,6 +108,32 @@ user32.SetWindowsHookExW.argtypes = (
     HINSTANCE,
     # _In_ dwThreadId
     DWORD,
+)
+
+# ===================================
+#  PostThreadMessageW
+#  https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postthreadmessagew
+# ===================================
+user32.PostThreadMessageW.restype = BOOL
+user32.PostThreadMessageW.argtypes = (
+    # _In_ idThread
+    DWORD,
+    # _In_ Msg
+    UINT,
+    # _In_ wParam
+    WPARAM,
+    # _In_ lParam
+    LPARAM,
+)
+
+# ===================================
+#  UnhookWindowsHookEx
+#  https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-unhookwindowshookex
+# ===================================
+user32.UnhookWindowsHookEx.restype = BOOL
+user32.UnhookWindowsHookEx.argtypes = (
+    # _In_ hhk
+    HHOOK,
 )
 
 # ===================================
@@ -297,16 +324,19 @@ def _print_mouse_msg(wParam, msg):
 
 
 def _patch_system_cursors():
+    """ Change all standard cursors to our custom cursor. """
     for cursorId in _standard_cursor_ids:
         newCursor = user32.LoadCursorFromFileW(cursor_absolute_path)
         user32.SetSystemCursor(newCursor, cursorId)
 
 
 def _restore_system_cursors():
+    """ Restore all standard cursors. """
     user32.SystemParametersInfoW(SPI_SETCURSORS, 0, None, 0)
 
 
 def _get_pid_from_point(point):
+    """ Get the PID of the window under the cursor. """
     win = user32.WindowFromPoint(point)
     pid = c_int()
     user32.GetWindowThreadProcessId(win, byref(pid))
@@ -327,21 +357,24 @@ def _LLMouseProc(nCode, wParam, lParam):
 
         elif wParam == WM_LBUTTONUP:
             _restore_system_cursors()
-            user32.PostThreadMessageW(threading.current_thread().ident, WM_QUIT, 0, 0)
+
             point = POINT()
             user32.GetCursorPos(byref(point))
             _result = _get_pid_from_point(point)
+
+            # Post a WM_NULL message to the current thread to exit the message loop when the grab is finished.
+            user32.PostThreadMessageW(threading.current_thread().ident, WM_NULL, 0, 0)
             return 1
     return user32.CallNextHookEx(None, nCode, wParam, lParam)
 
 
 def _msg_loop():
-    user32.SetWindowsHookExW(WH_MOUSE_LL, _LLMouseProc, None, 0)
+    hook = user32.SetWindowsHookExW(WH_MOUSE_LL, _LLMouseProc, None, 0)
     msg = MSG()
 
     _patch_system_cursors()
 
-    while True:
+    while _result == 0:  # Wait until the grab is finished (when _result is not zero).
         bRet = user32.GetMessageW(byref(msg), None, 0, 0)
         if not bRet:
             break
@@ -349,6 +382,8 @@ def _msg_loop():
             raise WinError(get_last_error())
         user32.TranslateMessage(byref(msg))
         user32.DispatchMessageW(byref(msg))
+
+    user32.UnhookWindowsHookEx(hook)
     return _result
 
 
@@ -357,10 +392,10 @@ def grab(_debug=False):
         global _is_debug, _result
         _is_debug = _debug
 
+        _result = 0
         _msg_loop()
 
         r = _result
-        _result = 0
         return r
 
 
