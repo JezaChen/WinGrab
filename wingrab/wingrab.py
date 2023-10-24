@@ -11,6 +11,9 @@ import sys
 if sys.platform != 'win32':
     raise NotImplementedError('Only support Windows platform')
 
+import msvcrt
+import atexit
+import signal
 import os
 import threading
 import contextlib
@@ -286,7 +289,23 @@ cursor_absolute_path = os.path.join(module_path, cursor_rel_path)
 # The path of the lock file
 lock_file_path = os.path.join(module_path, 'WINGRAB.LOCKFILE')
 
+# The result of the grab
 _result = 0
+
+# Whether the cursor has been changed
+# If the cursor has been changed, we need to restore it when the grab is finished or the program exits.
+_is_cursor_changed = False
+
+
+def _release_lock(f):
+    """ Close file and remove lock file.
+    """
+    f.close()
+    try:
+        os.remove(lock_file_path)
+    except PermissionError:
+        # Ignore permission error as it does not affect program execution or subsequent lock operation
+        pass
 
 
 @contextlib.contextmanager
@@ -303,16 +322,27 @@ def _global_wingrab_process_lock():
 
     :return: None
     """
-    try:
-        f = open(lock_file_path, 'x')
-    except FileExistsError:
-        raise RuntimeError('Another instance of WinGrab is running') from None
 
+    # Create a lock file
+    try:
+        f = open(lock_file_path, 'w+')
+    except PermissionError:
+        raise RuntimeError(
+            'Unable to open lock file. Ensure that the path exists and you have write permission.'
+        ) from None
+
+    # Try to acquire the lock
+    try:
+        msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+    except OSError:
+        _release_lock(f)
+        raise RuntimeError('Another instance of WinGrab is already running.') from None
+
+    # Yield to the context
     try:
         yield
     finally:
-        f.close()
-        os.remove(lock_file_path)
+        _release_lock(f)
 
 
 def _print_mouse_msg(wParam, msg):
@@ -325,6 +355,9 @@ def _print_mouse_msg(wParam, msg):
 
 def _patch_system_cursors():
     """ Change all standard cursors to our custom cursor. """
+    global _is_cursor_changed
+    _is_cursor_changed = True
+
     for cursorId in _standard_cursor_ids:
         newCursor = user32.LoadCursorFromFileW(cursor_absolute_path)
         user32.SetSystemCursor(newCursor, cursorId)
@@ -332,7 +365,9 @@ def _patch_system_cursors():
 
 def _restore_system_cursors():
     """ Restore all standard cursors. """
+    global _is_cursor_changed
     user32.SystemParametersInfoW(SPI_SETCURSORS, 0, None, 0)
+    _is_cursor_changed = False
 
 
 def _get_pid_from_point(point):
@@ -345,6 +380,7 @@ def _get_pid_from_point(point):
 
 @LowLevelMouseProc
 def _LLMouseProc(nCode, wParam, lParam):
+    """ Low-level mouse input event hook procedure. """
     global _result
 
     if nCode == HC_ACTION:
@@ -369,6 +405,7 @@ def _LLMouseProc(nCode, wParam, lParam):
 
 
 def _msg_loop():
+    """ Start a message loop to grab the PID of the window under the cursor. """
     hook = user32.SetWindowsHookExW(WH_MOUSE_LL, _LLMouseProc, None, 0)
     msg = MSG()
 
@@ -387,6 +424,31 @@ def _msg_loop():
     return _result
 
 
+# region The cleanup function
+def _cleanup_impl(*, _from_atexit=False):
+    """ Clean up any resources used by the program or manually clean up any leftover state from the 'wingrab' module.
+    """
+    if _is_debug:
+        print("cleaning up......")
+
+    if _from_atexit and _is_cursor_changed:
+        _restore_system_cursors()
+
+    if os.path.exists(lock_file_path):
+        try:
+            os.remove(lock_file_path)
+        except PermissionError:
+            pass  # Ignore the error if the lock file is being used.
+
+
+# Register cleanup function
+atexit.register(lambda: _cleanup_impl(_from_atexit=True))
+signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+signal.signal(signal.SIGINT, lambda *_: sys.exit(0))
+# endregion
+
+
+# region The public API
 def grab(_debug=False):
     with _global_wingrab_process_lock():
         global _is_debug, _result
@@ -397,6 +459,14 @@ def grab(_debug=False):
 
         r = _result
         return r
+
+
+def cleanup(_debug=False):
+    global _is_debug
+    _is_debug = _debug
+
+    _cleanup_impl()
+# endregion
 
 
 if __name__ == '__main__':
