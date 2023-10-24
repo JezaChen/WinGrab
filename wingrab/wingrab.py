@@ -7,6 +7,7 @@ Developed by Jianzhang Chen
 LICENSE: MIT
 """
 import sys
+
 if sys.platform != 'win32':
     raise NotImplementedError('Only support Windows platform')
 
@@ -50,6 +51,8 @@ WM_TO_TEXT = {
 IMAGE_CURSOR = 2
 LR_SHARED = 0x00008000
 LR_COPYFROMRESOURCE = 0x00004000
+
+SPI_SETCURSORS = 0x0057
 
 ULONG_PTR = WPARAM
 LRESULT = LPARAM
@@ -177,44 +180,6 @@ user32.LoadCursorFromFileW.argtypes = (
 )
 
 # ===================================
-#  LoadImageW
-#  https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-loadimagew
-# ===================================
-user32.LoadImageW.restype = HANDLE
-user32.LoadImageW.argtypes = (
-    # _In_opt_ hinst
-    HINSTANCE,
-    # _In_     lpszName
-    LPCWSTR,
-    # _In_     uType
-    UINT,
-    # _In_     cxDesired
-    c_int,
-    # _In_     cyDesired
-    c_int,
-    # _In_     fuLoad
-    UINT,
-)
-
-# ===================================
-#  CopyImage
-#  https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-copyimage
-# ===================================
-user32.CopyImage.restype = HANDLE
-user32.CopyImage.argtypes = (
-    # _In_ h
-    HANDLE,
-    # _In_ uType
-    UINT,
-    # _In_ cxDesired
-    c_int,
-    # _In_ cyDesired
-    c_int,
-    # _In_ fuFlags
-    UINT,
-)
-
-# ===================================
 #  GetCursorPos
 #  https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getcursorpos
 # ===================================
@@ -246,6 +211,22 @@ user32.GetWindowThreadProcessId.argtype = (
     LPDWORD,
 )
 
+# ===================================
+#  SystemParametersInfoW
+#  https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-systemparametersinfow
+# ===================================
+user32.SystemParametersInfoW.restype = BOOL
+user32.SystemParametersInfoW.argtypes = (
+    # _In_     uiAction
+    UINT,
+    # _In_     uiParam
+    UINT,
+    # _Inout_  pvParam
+    POINTER(POINT),
+    # _In_     fWinIni
+    UINT,
+)
+
 # Standard cursor identifiers
 # https://learn.microsoft.com/en-us/windows/win32/menurc/about-cursors
 _standard_cursor_ids = [
@@ -267,9 +248,6 @@ _standard_cursor_ids = [
 # Whether to print debug messages
 _is_debug = False
 
-# Save system cursors, before changing it
-_saved_system_cursors = {}
-
 # We need to change all standard cursors to our custom cursor
 cursor_rel_path = 'cursor.cur'
 cursor_absolute_path = os.path.join(os.path.dirname(__file__), cursor_rel_path)
@@ -287,17 +265,12 @@ def _print_mouse_msg(wParam, msg):
 
 def _patch_system_cursors():
     for cursorId in _standard_cursor_ids:
-        oldCursorImg = user32.LoadImageW(0, MAKEINTRESOURCEW(cursorId), IMAGE_CURSOR, 0, 0, LR_SHARED)
-        _saved_system_cursors[cursorId] = user32.CopyImage(oldCursorImg, IMAGE_CURSOR,
-                                                           0, 0, LR_COPYFROMRESOURCE)
-
         newCursor = user32.LoadCursorFromFileW(cursor_absolute_path)
         user32.SetSystemCursor(newCursor, cursorId)
 
 
 def _restore_system_cursors():
-    for cursorId in _standard_cursor_ids:
-        user32.SetSystemCursor(_saved_system_cursors[cursorId], cursorId)
+    user32.SystemParametersInfoW(SPI_SETCURSORS, 0, None, 0)
 
 
 def _get_pid_from_point(point):
