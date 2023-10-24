@@ -29,6 +29,12 @@ or
 py-wingrab grab
 ```
 
+You can run it together with some powershell commands like `Get-Process`:
+
+```bash
+Get-Process -Id $(py-wingrab)
+```
+
 If `wingrab` crashes, and the mouse cursor has changed to a cross, 
 run the `cleanup` command to try to restore the mouse cursor.
 
