@@ -33,4 +33,9 @@ setup(
         "License :: OSI Approved :: MIT License",
     ],
     package_data={"wingrab": ["cursor.cur",]},
+    entry_points={
+        "console_scripts": [
+            "py-wingrab = wingrab.__main__:main",  # User can use `py-wingrab` in the command line directly.
+        ],
+    },
 )

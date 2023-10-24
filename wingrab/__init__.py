@@ -1,1 +1,1 @@
-from .wingrab import grab
+from .wingrab import grab, cleanup

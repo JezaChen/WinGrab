@@ -22,7 +22,7 @@ from ctypes import POINTER, cast, byref, Structure, WinError, get_last_error, c_
 from ctypes.wintypes import (WPARAM, LPARAM, HANDLE, DWORD, BOOL, HINSTANCE, UINT, LPCWSTR, LPDWORD, MSG, HHOOK, HWND,
                              POINT)
 
-__all__ = ['grab']
+__all__ = ['grab', 'cleanup']
 
 user32 = WinDLL('user32', use_last_error=True)
 
