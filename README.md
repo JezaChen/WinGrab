@@ -1,5 +1,8 @@
 # WinGrab
-A simple tool to get the PID of the window under the cursor.
+A simple tool to get the PID of the window under the mouse cursor, implemented in **Python**.
+
+`wingrab` is implemented in the Python language, supports running directly and integrating into Python code, 
+and currently only supports Windows.
 
 ## Installation
 ### From pip
@@ -10,7 +13,7 @@ pip install wingrab
 
 ### From source code
 
-Download the wingrab.py and cursor.cur files and place them in your project directory, 
+Download the [wingrab.py](wingrab%2Fwingrab.py) and [cursor.cur](wingrab%2Fcursor.cur) files and place them in your project directory, 
 ensuring the `cursor.cur` file is in the same location as `wingrab.py`.
 
 ## Usage
