@@ -67,6 +67,11 @@ HCURSOR = HANDLE
 HOOKPROC = WINFUNCTYPE(LRESULT, c_int, WPARAM, LPARAM)
 LowLevelMouseProc = HOOKPROC
 
+# https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-peekmessagew
+PM_NOREMOVE = 0x0000
+PM_REMOVE = 0x0001
+PM_NOYIELD = 0x0002
+
 
 class MSLLHOOKSTRUCT(Structure):
     _fields_ = (('pt', POINT),
@@ -167,6 +172,23 @@ user32.GetMessageW.argtypes = (
     # _In_     wMsgFilterMin
     UINT,
     # _In_     wMsgFilterMax
+    UINT,
+)
+
+# ===================================
+#  PeekMessageW
+#  https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-peekmessagew
+# ===================================
+user32.PeekMessageW.argtypes = (
+    # _Out_    lpMsg
+    LPMSG,
+    # _In_opt_ hWnd
+    HWND,
+    # _In_     wMsgFilterMin
+    UINT,
+    # _In_     wMsgFilterMax
+    UINT,
+    # _In_     wRemoveMsg
     UINT,
 )
 
@@ -342,7 +364,8 @@ def _global_wingrab_process_lock():
     try:
         yield
     finally:
-        _release_lock(f)
+        f.close()
+        _cleanup_impl(_from_atexit=True)
 
 
 def _print_mouse_msg(wParam, msg):
@@ -392,8 +415,6 @@ def _LLMouseProc(nCode, wParam, lParam):
             return 1
 
         elif wParam == WM_LBUTTONUP:
-            _restore_system_cursors()
-
             point = POINT()
             user32.GetCursorPos(byref(point))
             _result = _get_pid_from_point(point)
@@ -411,12 +432,14 @@ def _msg_loop():
 
     _patch_system_cursors()
 
-    while _result == 0:  # Wait until the grab is finished (when _result is not zero).
-        bRet = user32.GetMessageW(byref(msg), None, 0, 0)
+    while _result == 0:
+        bRet = user32.PeekMessageW(byref(msg), None, 0, 0, PM_REMOVE)
         if not bRet:
+            continue
+
+        if msg.message == WM_QUIT:
             break
-        if bRet == -1:
-            raise WinError(get_last_error())
+
         user32.TranslateMessage(byref(msg))
         user32.DispatchMessageW(byref(msg))
 
@@ -443,11 +466,22 @@ def _cleanup_impl(*, _from_atexit=False):
             pass  # Ignore the error if the lock file is being used.
 
 
+def _quit():
+    # We just mark the result as -1 to jump out of the message loop.
+    # And the cleanup function will be called automatically.
+    global _result
+    _result = -1
+
+
 # Register cleanup function
-atexit.register(lambda: _cleanup_impl(_from_atexit=True))
+atexit.register(_quit)
 try:
-    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
-    signal.signal(signal.SIGINT, lambda *_: sys.exit(0))
+    def signal_handler(sig, frame):
+        _quit()
+
+
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
 except ValueError:  # `signal` only works in the main thread.
     raise ImportError(
         'Please import wingrab in the main thread, even if you want to use it in another thread.'
