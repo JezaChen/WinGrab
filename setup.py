@@ -8,7 +8,7 @@ def get_description():
 
 setup(
     name="WinGrab",
-    version="0.0.1a3",
+    version="0.0.2",
     url="https://github.com/JezaChen/WinGrab",
     author="Jianzhang Chen",
     author_email="jezachen@163.com",
@@ -29,6 +29,7 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Development Status :: 4 - Beta",
         "License :: OSI Approved :: MIT License",
     ],
